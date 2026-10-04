@@ -18,5 +18,4 @@ Source code link: https://github.com/RichardTND/RaceNSmash
 
 ## Plan to Add
 - Score pickups
-- 2-player mode
 - 3-lives system
