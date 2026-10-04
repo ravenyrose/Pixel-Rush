@@ -353,7 +353,7 @@ initsc   lda #$30        ;digit 0
          ;directly to the main
          ;game loop
 
-         jmp setDiff
+         jmp setLives
 
 ;--------------------------------------
 
@@ -490,8 +490,17 @@ maskblk  lda #$ff
 
 ;--------------------------------------
 
+setLives lda #$03
+         sta lives1
+         sta lives2
+         lda playerMode 
+         cmp #$00
+         bne setDiff
+         lda #$00
+         sta lives2
+
 setDiff  lda difficulty
-         
+
 diff1    cmp #$00
          bne diff2
          lda  #59 ;60 seconds
@@ -566,7 +575,10 @@ animate  jsr animspr;Animation routine
 ;Sprite movement loop for both players
 ;and baddies.
 
-movement jsr movplr  ;Move player car
+movement
+         jsr  movplr1 ;Move player car
+         jsr  movplr2
+         
          jsr movbad  ;Move baddies
          rts
 
@@ -649,80 +661,161 @@ newframe lda car
 
 ;--------------------------------------
 
-;Move player using joystick port 2
+;Move player 1 using joystick port 2
+movplr1  lda lives1
+         cmp #$00
+         bne readUp1
+         rts
 
-movplr   lda #1 ;Read joystick up
+readUp1  lda #1 ;Read joystick up
          bit $dc00
-         bne notup
-         jsr movplrup ;Move car up
+         bne notup1
+         jsr movplrup1 ;Move car up
 
-notup
-         lda #2 ;Read joystick down
+notup1   lda #2 ;Read joystick down
          bit $dc00
-         bne notdown
-         jsr movplrdn ;Move car down
-notdown
-         lda #4 ;Read joystick left
+         bne notdown1
+         jsr  movplrdn1 ;Move car down
+         
+notdown1 lda #4 ;Read joystick left
          bit $dc00
-         bne notleft
-         jsr movplrlf ;Move car left
+         bne notleft1
+         jsr movplrlf1 ;Move car left
 
-notleft  lda #8 ;Read joystick right
+notleft1 lda #8 ;Read joystick right
          bit $dc00
-         bne notright
-         jsr movplrgt ;Move car right
-notright rts          ;Exit subroutine
+         bne notright1
+         jsr movplrgt1 ;Move car right
+notright1 rts          ;Exit subroutine
 
 ;Move player car up
 
-movplrup lda carpos+1 ;Read Y of car
+movplrup1 lda carpos+1 ;Read Y of car
          sec          ;subtract pos by
          sbc #3       ;3
          cmp #$3a     ;Pos below $3a
-         bcs storup   ;No, update pos
+         bcs storup1   ;No, update pos
          lda #$3a     ;Force stop pos
-storup   sta carpos+1 ;Updated position
+storup1  sta carpos+1 ;Updated position
          rts
 
 ;Move player car down
 
-movplrdn lda carpos+1 ;Read Y of car
+movplrdn1 lda carpos+1 ;Read Y of car
          clc          ;add pos by
          adc #3       ;3
          cmp #$c2     ;Pos above $da
-         bcc stordn   ;No, update pos
+         bcc stordn1   ;No, update pos
          lda #$c2     ;Force stop pos
-stordn   sta carpos+1 ;Updated position
+stordn1  sta carpos+1 ;Updated position
          rts
 
 ;Move player car left
 
-movplrlf lda carpos   ;Read X of car
+movplrlf1 lda carpos   ;Read X of car
          sec          ;subtract pos by
          sbc #2       ;2
          cmp #$2e     ;Pos below $2e?
-         bcs storlft  ;No, update pos
+         bcs storlft1  ;No, update pos
          lda #$2e     ;Force stop pos
-storlft  sta carpos   ;Updated position
+storlft1 sta carpos   ;Updated position
          rts
 
 ;Move player car right
 
-movplrgt lda carpos   ;Read X of car
+movplrgt1 lda carpos   ;Read X of car
          clc          ;add pos by
          adc #2       ;2
          cmp #$7e     ;Pos above $7e?
-         bcc storrgt  ;No update pos
+         bcc storrgt1  ;No update pos
          lda #$7e     ;Force stop pos
-storrgt  sta carpos
+storrgt1 sta carpos
          rts
+         
+;Move player 2 using joystick port 1
+movplr2  lda lives2
+         cmp #$00
+         bne readUp2
+         rts
+
+readUp2  lda #1 ;Read joystick up
+         bit $dc01
+         bne notup2
+         jsr movplrup2 ;Move car up
+
+notup2   lda #2 ;Read joystick down
+         bit $dc01
+         bne notdown2
+         jsr movplrdn2 ;Move car down
+         
+notdown2 lda #4 ;Read joystick left
+         bit $dc01
+         bne notleft2
+         jsr movplrlf2 ;Move car left
+
+notleft2 lda #8 ;Read joystick right
+         bit $dc01
+         bne notright2
+         jsr movplrgt2 ;Move car right
+notright2 rts          ;Exit subroutine
+
+;Move player car up
+
+movplrup2 lda carpos+3 ;Read Y of car
+         sec          ;subtract pos by
+         sbc #3       ;3
+         cmp #$3a     ;Pos below $3a
+         bcs storup2   ;No, update pos
+         lda #$3a     ;Force stop pos
+storup2  sta carpos+3 ;Updated position
+         rts
+
+;Move player car down
+
+movplrdn2 lda carpos+3 ;Read Y of car
+         clc          ;add pos by
+         adc #3       ;3
+         cmp #$c2     ;Pos above $da
+         bcc stordn2   ;No, update pos
+         lda #$c2     ;Force stop pos
+stordn2  sta carpos+3 ;Updated position
+         rts
+
+;Move player car left
+
+movplrlf2 lda carpos+2   ;Read X of car
+         sec          ;subtract pos by
+         sbc #2       ;2
+         cmp #$2e     ;Pos below $2e?
+         bcs storlft2  ;No, update pos
+         lda #$2e     ;Force stop pos
+storlft2 sta carpos+2   ;Updated position
+         rts
+
+;Move player car right
+
+movplrgt2 lda carpos+2   ;Read X of car
+         clc          ;add pos by
+         adc #2       ;2
+         cmp #$7e     ;Pos above $7e?
+         bcc storrgt2  ;No update pos
+         lda #$7e     ;Force stop pos
+storrgt2 sta carpos+2
+         rts          
 
 ;-------------------------------------
 
 ;Move the enemy cars at twice the
 ;speed of the player
 
-movbad   ldx #$00
+movbad   ldx  #$00
+         
+notPlyr2 lda playerMode ;Skips scrolling sprite 1 if two-player mode is active
+         cmp #$01
+         bne movloop
+         inx
+         inx
+
 movloop  lda carpos+3,x ;Read sprite 1
                         ;Y pos (Enemy
                         ;cars)
@@ -739,10 +832,20 @@ badspd   adc #2
 ;Hardware pixel based sprite to sprite
 ;collision.
 
-spr2spr  lda $d01e
+spr2spr  lda playerMode
+         cmp #$01
+         beq mode2
+
+mode1    lda  $d01e
          lsr 
          bcc nocrash
+         jmp  crashed
+         
+mode2    lda $d01e
+         and #%11111100 ;this should result in a 0 if player 1 and 2 collide
+         beq nocrash
          jmp crashed
+
 nocrash  rts
 
 ;-------------------------------------
@@ -1188,6 +1291,8 @@ skip
 ;POINTERS
 
 lvlTime !byte 0   ;seconds required before level transition; changes based on difficulty
+lives1 !byte 0
+lives2 !byte 0
 
 ;Raster sync timer
 
@@ -1263,8 +1368,8 @@ carcolor
 ;so that it looks as if the player is
 ;trying to catch up with them.
 
-startpos !byte  $56,$ba ;Car 1-Sprite 0
-         !byte  $00,$80 ;Car 2-Sprite 1
+startpos !byte  $4c,$ba ;Car 1-Sprite 0 ;Car1 and 2 start on the same y pos for two-player mode
+         !byte  $60,$ba ;Car 2-Sprite 1
          !byte  $00,$c0 ;Car 3-Sprite 2
          !byte  $00,$40 ;Car 4-Sprite 3
          !byte  $00,$20 ;Car 5-Sprite 4
