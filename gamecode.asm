@@ -647,9 +647,9 @@ notright rts          ;Exit subroutine
 movplrup lda carpos+1 ;Read Y of car
          sec          ;subtract pos by
          sbc #4       ;4
-         cmp #$90     ;Pos below $90
+         cmp #$3a     ;Pos below $3a
          bcs storup   ;No, update pos
-         lda #$90     ;Force stop pos
+         lda #$3a     ;Force stop pos
 storup   sta carpos+1 ;Updated position
          rts
 
