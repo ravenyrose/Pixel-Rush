@@ -8,12 +8,13 @@ Source code link: https://github.com/RichardTND/RaceNSmash
 ## Modifications
 - Changed upper player movement limit from #$90 to #$3a
 - Changed player vertical movement speed from 4 pixels to 3
-- 5 Difficulty Levels (not indicated in the ui yet)
-    - Normal
-    - Fast
-    - Faster
-    - Fastest
-    - Extreme
+- 5 Difficulty Levels (not indicated in the ui yet) input through joystick port 2:
+    - Normal (approximatly 60 sec interval per level) - fire button
+    - Fast (30) - up direction
+    - Faster (15) - down direction
+    - Fastest (10) - left direction
+    - Extreme (5) - right direction
+- 2-player mode (hold joystick port 1 fire button before selecting difficulty)
 
 ## Plan to Add
 - Score pickups
