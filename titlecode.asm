@@ -389,10 +389,51 @@ tloop    lda #0
          ;Wait for fire to be
          ;pressed
 
-         lda #16
+normal   lda #16    ;joystick port 2 fire button
          bit $dc00
-         bne tloop
-         jmp game
+         bne fast
+         lda #$00
+         sta difficulty
+         jmp chkMode      ;checks if one or two player mode
+         
+fast     lda #01       ;up input
+         bit $dc00
+         bne faster
+         lda #$01
+         sta difficulty
+         jmp chkMode
+         
+faster   lda #02         ;down input
+         bit $dc00
+         bne fastest
+         lda #$02
+         sta difficulty
+         jmp chkMode
+         
+fastest  lda #04           ;left input
+         bit $dc00
+         bne extreme
+         lda #$03
+         sta difficulty
+         jmp chkMode
+         
+extreme  lda #08            ;right input
+         bit $dc00         
+         bne tloop          ;restarts input check
+         lda #$04
+         sta difficulty
+      
+chkMode  lda #16         ;player mode check: joystick port 1 fire button
+         bit $dc01
+         bne onePlyr
+twoPlyr  lda #$01 
+         sta playerMode
+         jmp gameStrt
+
+onePlyr  lda #$00
+         sta playerMode 
+
+gameStrt jmp game
 
 ;Scroll text routine
 
@@ -569,5 +610,11 @@ line4    !text "           press fir"
          !text "e to play           "
 
 ;--------------------------------------
+
+;Difficulty and two-player mode bytes
+
+difficulty !byte 0
+playerMode !byte 0
+
 ;*** END ***
 

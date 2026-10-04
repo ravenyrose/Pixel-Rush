@@ -353,7 +353,7 @@ initsc   lda #$30        ;digit 0
          ;directly to the main
          ;game loop
 
-         jmp gameloop
+         jmp setDiff
 
 ;--------------------------------------
 
@@ -490,6 +490,37 @@ maskblk  lda #$ff
 
 ;--------------------------------------
 
+setDiff  lda difficulty
+         
+diff1    cmp #$00
+         bne diff2
+         lda  #59 ;60 seconds
+         sta  lvlTime
+         jmp gameloop
+
+diff2    cmp #$01
+         bne diff3
+         lda  #29 ;30 seconds
+         sta  lvlTime         
+         jmp gameloop 
+         
+diff3    cmp #$02
+         bne diff4
+         lda  #$14 ;15 seconds
+         sta  lvlTime   
+         jmp gameloop      
+         
+diff4    cmp #$03
+         bne diff5
+         lda  #$09 ;10 seconds
+         sta  lvlTime         
+         jmp gameloop
+         
+diff5    cmp #$04
+         lda  #$04 ;5 seconds
+         sta  lvlTime         
+         jmp gameloop
+         
 ;The main game loop (Call subroutines)
 
 gameloop
@@ -1114,7 +1145,7 @@ hsloop2
 
 ;Level control. This is based on
 ;playing time. The player should last
-;60 seconds before the game speeds up
+;60 seconds before the game speeds up (in normal difficulty)
 
 levels
          lda timems
@@ -1128,7 +1159,7 @@ levels
 secondup lda #$00
          sta timems
          lda times
-         cmp #59
+         cmp lvlTime   ;level time interval based on difficulty
          beq levclear
          inc times
 
@@ -1155,6 +1186,8 @@ skip
 ;---------------------------------------
 
 ;POINTERS
+
+lvlTime !byte 0   ;seconds required before level transition; changes based on difficulty
 
 ;Raster sync timer
 
