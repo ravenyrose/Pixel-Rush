@@ -490,7 +490,7 @@ maskblk  lda #$ff
 
 ;--------------------------------------
 
-setLives lda #$03
+setLives lda #$01
          sta lives1
          sta lives2
          lda playerMode 
@@ -842,9 +842,17 @@ badspd   adc #2
 
 ;-------------------------------------
 ;Hardware pixel based sprite to sprite
-;collision.
+          ;collision.
 
-spr2spr  lda playerMode
+inCollt  dec colltimer ;prevents accidental collision at the start
+         lda #%00000000
+         sta $d01e
+         rts 
+
+spr2spr  lda colltimer
+         cmp #$00
+         bne inCollt
+         lda playerMode
          cmp #$01
          beq mode2
 
@@ -852,11 +860,11 @@ mode1    lda lives1 ;checks if player1 has no lives
          cmp #$00
 pl1Ded   beq mode1Ded 
 
-         lda  secs1
+         lda secs1
          cmp #$00   
          bne invPass1
 
-         lda  $d01e ;one-player mode
+         lda $d01e ;one-player mode
          lsr 
          bcc nocrash
          jmp crashed1
@@ -869,7 +877,9 @@ mode2    lda $d01e       ;two-player mode
 invPass1  jsr inv1
 invPass2  jsr inv2
 
-nocrash  rts
+nocrash   lda #%00000000 ;clear collision bits
+          sta $d01e
+          rts
 
 inv1     lda  secs1
          cmp #$00
@@ -912,13 +922,14 @@ secDwn2  lda #60
 ;before the player dies.
 
 mode1Ded jmp demolish ;placed this because mode1 is too far from demolish
+         
 
 crashed1          
          dec lives1 ;one-player crash (only one sprite to take into account)         
          beq pl1Ded
          lda #60
          sta invTime1
-         lda #05
+         lda #5
          sta secs1
          jmp nocrash   ;there was a crash but player lives 
 
@@ -940,10 +951,8 @@ chckLvs2 lda lives2
          cmp #$00
          bne nocrash
 
-demolish dec colltimer
-         lda colltimer
-         beq gameover
-         rts 
+demolish 
+         beq destroy
 
 ;--------------------------------------
 
