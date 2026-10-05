@@ -810,21 +810,33 @@ storrgt2 sta carpos+2
 
 movbad   ldx  #$00
          
-notPlyr2 lda playerMode ;Skips scrolling sprite 1 if two-player mode is active
-         cmp #$01
-         bne movloop
+plr1Alve lda lives1 ;for 2-player mode (scrolls player 1 down when dead and player 2's still around)
+         cmp #$00
+         beq movloop
          inx
          inx
+         jmp movloop
 
-movloop  lda carpos+3,x ;Read sprite 1
+ply2chk  lda playerMode ;Skips scrolling sprite 1 if two-player mode is active
+         cmp #$01
+         bne pl2cont
+         inx
+         inx
+         rts
+
+movloop  cpx  #2
+         beq ply2chk 
+
+pl2cont
+         lda carpos+1,x ;Read sprite 0
                         ;Y pos (Enemy
                         ;cars)
          clc
 badspd   adc #2
-         sta carpos+3,x
+         sta carpos+1,x
          inx
          inx
-         cpx #14 ;7 sprites for baddies
+         cpx #16 ;all sprites
          bne movloop
          rts
 
@@ -836,30 +848,102 @@ spr2spr  lda playerMode
          cmp #$01
          beq mode2
 
-mode1    lda  $d01e
+mode1    lda lives1 ;checks if player1 has no lives
+         cmp #$00
+pl1Ded   beq mode1Ded 
+
+         lda  secs1
+         cmp #$00   
+         bne invPass1
+
+         lda  $d01e ;one-player mode
          lsr 
          bcc nocrash
-         jmp  crashed
+         jmp crashed1
          
-mode2    lda $d01e
+mode2    lda $d01e       ;two-player mode
          and #%11111100 ;this should result in a 0 if player 1 and 2 collide
          beq nocrash
-         jmp crashed
+         jmp  crashed2
+         
+invPass1  jsr inv1
+invPass2  jsr inv2
 
 nocrash  rts
 
-;-------------------------------------
+inv1     lda  secs1
+         cmp #$00
+         beq invPass2
+
+         lda invTime1
+         cmp #0
+         beq secDwn1
+         dec invTime1
+         rts
+
+         ;Reset milliseconds
+
+secDwn1  lda #60
+         sta invTime1
+         dec secs1
+         rts
+         
+inv2     lda  secs2
+         cmp #$00
+         beq nocrash
+
+         lda invTime2
+         cmp #0
+         beq secDwn2
+         dec invTime2
+         rts
+
+         ;Reset milliseconds
+
+secDwn2  lda #60
+         sta invTime2
+         dec secs2
+         rts 
+
+;------------------------------------
 
 ;The player has crashed, but make sure
 ;the crash counter has reached zero
 ;before the player dies.
 
+mode1Ded jmp demolish ;placed this because mode1 is too far from demolish
 
+crashed1          
+         dec lives1 ;one-player crash (only one sprite to take into account)         
+         beq pl1Ded
+         lda #60
+         sta invTime1
+         lda #05
+         sta secs1
+         jmp nocrash   ;there was a crash but player lives 
 
-crashed  dec colltimer
+crashed2 lda $d01e
+ply1crsh lsr 
+         bcc ply2crsh 
+         dec lives1
+         
+          
+ply2crsh lsr
+         bcc chckLivs
+         dec lives2
+
+chckLivs lda lives1     ;checks if both players are dead     
+chckLvs1 cmp #$00 
+         bne nocrash   ; returns to gameloop
+
+chckLvs2 lda lives2
+         cmp #$00
+         bne nocrash
+
+demolish dec colltimer
          lda colltimer
-         beq destroy
-         rts
+         beq gameover
+         rts 
 
 ;--------------------------------------
 
@@ -1290,9 +1374,19 @@ skip
 
 ;POINTERS
 
-lvlTime !byte 0   ;seconds required before level transition; changes based on difficulty
+lvlTime !byte  0 ;seconds required before level transition; changes based on difficulty
+
+;player lives
+
 lives1 !byte 0
 lives2 !byte 0
+
+;invincibility frame time
+
+invTime1 !byte  0
+secs1 !byte 0
+invTime2 !byte 0
+secs2 !byte 0
 
 ;Raster sync timer
 
@@ -1412,7 +1506,6 @@ score    !text "000000"
 levelct  !text "1    "
          !text "hi: "
 hiscore  !text "000000"
-
 ;Game over text
 
 gotext   !text "game over"
