@@ -822,7 +822,7 @@ ply2chk  lda playerMode ;Skips scrolling sprite 1 if two-player mode is active
          bne pl2cont
          inx
          inx
-         rts
+         
 
 movloop  cpx  #2
          beq ply2chk 
@@ -844,14 +844,8 @@ badspd   adc #2
 ;Hardware pixel based sprite to sprite
           ;collision.
 
-inCollt  dec colltimer ;prevents accidental collision at the start
-         lda #%00000000
-         sta $d01e
-         rts 
+spr2spr  
 
-spr2spr  lda colltimer
-         cmp #$00
-         bne inCollt
          lda playerMode
          cmp #$01
          beq mode2
@@ -914,7 +908,7 @@ secDwn2  lda #60
          sta invTime2
          dec secs2
          rts 
-
+ncrashPt jmp nocrash
 ;------------------------------------
 
 ;The player has crashed, but make sure
@@ -922,18 +916,28 @@ secDwn2  lda #60
 ;before the player dies.
 
 mode1Ded jmp demolish ;placed this because mode1 is too far from demolish
-         
 
-crashed1          
+collTim1 dec colltimer
+         lda colltimer
+         beq crashed1
+         jmp ncrashPt
+
+crashed1 jmp collTim1         
          dec lives1 ;one-player crash (only one sprite to take into account)         
          beq pl1Ded
          lda #60
          sta invTime1
-         lda #5
+         lda #2
          sta secs1
          jmp nocrash   ;there was a crash but player lives 
 
-crashed2 lda $d01e
+collTim2 dec colltimer
+         lda colltimer
+         beq crashed2
+         jmp ncrashPt
+
+crashed2 jmp collTim2
+         lda $d01e
 ply1crsh lsr 
          bcc ply2crsh 
          dec lives1
@@ -945,11 +949,11 @@ ply2crsh lsr
 
 chckLivs lda lives1     ;checks if both players are dead     
 chckLvs1 cmp #$00 
-         bne nocrash   ; returns to gameloop
+         bne ncrashPt   ; returns to gameloop
 
 chckLvs2 lda lives2
          cmp #$00
-         bne nocrash
+         bne ncrashPt
 
 demolish 
          beq destroy
