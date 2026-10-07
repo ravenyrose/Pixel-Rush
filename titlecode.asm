@@ -392,35 +392,35 @@ tloop    lda #0
 normal   lda #16    ;joystick port 2 fire button
          bit $dc00
          bne fast
-         lda #$00
+         lda #$01
          sta difficulty
          jmp chkMode      ;checks if one or two player mode
          
 fast     lda #01       ;up input
          bit $dc00
          bne faster
-         lda #$01
+         lda #$02
          sta difficulty
          jmp chkMode
          
 faster   lda #02         ;down input
          bit $dc00
          bne fastest
-         lda #$02
+         lda #$03
          sta difficulty
          jmp chkMode
          
 fastest  lda #04           ;left input
          bit $dc00
          bne extreme
-         lda #$03
+         lda #$04
          sta difficulty
          jmp chkMode
          
 extreme  lda #08            ;right input
          bit $dc00         
          bne tloop          ;restarts input check
-         lda #$04
+         lda #$05
          sta difficulty
       
 chkMode  lda #16         ;player mode check: joystick port 1 fire button

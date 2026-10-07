@@ -501,31 +501,31 @@ setLives lda #$03
 
 setDiff  lda difficulty
 
-diff1    cmp #$00
+diff1    cmp #$01
          bne diff2
          lda  #59 ;60 seconds
          sta  lvlTime
          jmp gameloop
 
-diff2    cmp #$01
+diff2    cmp #$02
          bne diff3
          lda  #29 ;30 seconds
          sta  lvlTime         
          jmp gameloop 
          
-diff3    cmp #$02
+diff3    cmp #$03
          bne diff4
          lda  #$14 ;15 seconds
          sta  lvlTime   
          jmp gameloop      
          
-diff4    cmp #$03
+diff4    cmp #$04
          bne diff5
          lda  #$09 ;10 seconds
          sta  lvlTime         
          jmp gameloop
          
-diff5    cmp #$04
+diff5    cmp #$05
          lda  #$04 ;5 seconds
          sta  lvlTime         
          jmp gameloop
@@ -1043,7 +1043,7 @@ gameoverloop
 ;Scoring points
 ;Enemy cars must exit the screen
 ;before points are scored in units of
-;10s.
+;100s.
 
 ;*+2 ;Accuracy for levels
 
@@ -1082,12 +1082,12 @@ setnextpos
 
 scoreit
 
-         inc score+3
+         jsr incScore
          ldx #$03
 scloop   lda score,x
 
-         cmp #$3a ;Illegal char value
-         bne scoreok
+         cmp #$3a ;Illegal char value; ascii of 0 - 9 goes from 30 to 39 hexadecimal
+         bcc scoreok
 
          lda #$30 ;Make as 0
          sta score,x
@@ -1113,6 +1113,14 @@ panelok
          bne maskloop
 
          rts
+         
+incScore ldx #$00
+incLoop  inc score+3
+         inx
+         cpx difficulty
+         bne incLoop
+         rts
+
 ;-------------------------------------
 
 ;Flash score panel routine
