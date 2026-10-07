@@ -836,10 +836,17 @@ spr2spr  lda playerMode
          cmp #$01
          beq mode2
 
-mode1    lda  $d01e
+mode1    lda iframes1
+         cmp #$00
+         beq noIfr1
+          dec  iframes1
+         lda $d01e ; should reset spr2spr collision bits
+         rts
+
+noIfr1   lda  $d01e
          lsr 
          bcc nocrash
-         jmp  crashed
+         jmp crashed
          
 mode2    lda $d01e
          and #%11111100 ;this should result in a 0 if player 1 and 2 collide
@@ -856,9 +863,18 @@ nocrash  rts
 
 
 
-crashed  dec colltimer
-         lda colltimer
+crashed  lda colltimer  
+         cmp #00
+         bne clTime
+
+
+crashed1 dec lives1
          beq destroy
+         lda #30
+         sta iframes1
+         rts
+
+clTime   dec colltimer
          rts
 
 ;--------------------------------------
@@ -1289,6 +1305,10 @@ skip
 ;---------------------------------------
 
 ;POINTERS
+
+;i-frames
+iframes1 !byte 0
+iframes2 !byte 0
 
 lvlTime !byte 0   ;seconds required before level transition; changes based on difficulty
 lives1 !byte 0
