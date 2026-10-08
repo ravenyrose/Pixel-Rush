@@ -867,11 +867,20 @@ noIfr1   lda  $d01e
          jmp crashed1
          
 mode2    lda $d01e
-
+          sta  collBits ;stores collision bits from d01e just in case because the previous instruction resets it
+          lda  lives1  ;this makes sure that collision works with dead players
+          cmp  #%00
+         beq pl1Chk
+          lda  lives2
+          cmp  #%00
+          beq  pl1Chk
+          
+         lda collBits 
          bit collCheck ;this should result in a 0 if player 1 and 2 collide
          beq nocrash
-pl1Chk   lsr
-         sta collBits
+pl1Chk   lda collBits
+         lsr
+         sta collBits ; this is for pl2Chk: done because value of acc might change because of crashed1
          bcc pl2Chk
          jsr crashed1 ;if player 1 crashed, that means player 2 didn't crash (might not work with certain conditions but whatever, let's work with the limitations here)
 pl2Chk   lda collBits
