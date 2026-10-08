@@ -1206,7 +1206,6 @@ setnextpos
 ;the updated score to screen.
 
 scoreit
-
          jsr incScore
          ldx #$03
 scloop   lda score,x
@@ -1214,7 +1213,8 @@ scloop   lda score,x
          cmp #$3a ;Illegal char value; ascii of 0 - 9 goes from 30 to 39 hexadecimal
          bcc scoreok
 
-         lda #$30 ;Make as 0
+          sec
+         sbc #10 ; this gets the excess or converts ascii $40 to $30 (0)
          sta score,x
          inc score-1,x
 
