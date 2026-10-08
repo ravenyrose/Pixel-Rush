@@ -499,33 +499,36 @@ setLives lda #$03
          lda #$00
          sta lives2
 
+resExpIn lda #$00
+         sta expStarted
+
 setDiff  lda difficulty
 
-diff1    cmp #$00
+diff1    cmp #$01
          bne diff2
          lda  #59 ;60 seconds
          sta  lvlTime
          jmp gameloop
 
-diff2    cmp #$01
+diff2    cmp #$02
          bne diff3
          lda  #29 ;30 seconds
          sta  lvlTime         
          jmp gameloop 
          
-diff3    cmp #$02
+diff3    cmp #$03
          bne diff4
          lda  #$14 ;15 seconds
          sta  lvlTime   
          jmp gameloop      
          
-diff4    cmp #$03
+diff4    cmp #$04
          bne diff5
          lda  #$09 ;10 seconds
          sta  lvlTime         
          jmp gameloop
          
-diff5    cmp #$04
+diff5    cmp #$05
          lda  #$04 ;5 seconds
          sta  lvlTime         
          jmp gameloop
@@ -624,7 +627,25 @@ animspr  lda animdelay
 
          ; Ready to animate racing cars
 animready
-         lda #$00
+colorP1  lda iframes1
+         cmp #$00
+         beq defcolP1
+YelP1    lda #$07
+          sta  carcol
+         jmp colorP2
+defcolP1 lda carcolor
+         sta carcol
+
+colorP2  lda iframes2
+         cmp #$00
+         beq defcolP2
+YelP2    lda #$07
+          sta  carcol + 1
+         jmp goAnim
+defcolP2 lda carcolor+1
+         sta carcol+1
+
+goAnim   lda #$00
          sta animdelay
          ldx animpointer
          lda carframe,x
@@ -650,8 +671,16 @@ animplr  lda car   ;Read pointer car
 ;frame.
 
 animbad
-
-         ldx #$00
+          ldx  #$00         ;skips sprite 1 when it's exploding
+          lda  spr2destroy
+          cmp  #$01
+          bne  newframe
+          lda  expStarted
+          cmp  #$01
+          bne  newframe
+          inx
+         inx
+          
 newframe lda car
          sta cartyp+1,x ;Sprites 1-7
          inx
@@ -808,23 +837,41 @@ storrgt2 sta carpos+2
 ;Move the enemy cars at twice the
 ;speed of the player
 
-movbad   ldx  #$00
-         
-notPlyr2 lda playerMode ;Skips scrolling sprite 1 if two-player mode is active
-         cmp #$01
-         bne movloop
-         inx
-         inx
+; the ones below are for determining whether to move players 1 and 2
 
-movloop  lda carpos+3,x ;Read sprite 1
+chkMovP1 lda lives1
+         cmp #$00
+          beq  movBack1
+          inx
+         inx
+movBack1 rts
+
+chkMovP2 lda lives2
+         cmp #$00
+          beq  movBack2
+          inx
+         inx
+movBack2 rts
+
+movbad   ldx  #$00           
+
+movloop  cpx #$00
+          bne  p2movCh
+         jsr chkMovP1
+p2movCh  cpx #$2        
+         bne movEnem
+         jsr chkMovP2
+
+movEnem
+         lda carpos+1,x ;Read sprite 1
                         ;Y pos (Enemy
                         ;cars)
          clc
 badspd   adc #2
-         sta carpos+3,x
+         sta carpos+1,x
          inx
          inx
-         cpx #14 ;7 sprites for baddies
+         cpx #16 ;7 sprites for baddies
          bne movloop
          rts
 
@@ -832,19 +879,50 @@ badspd   adc #2
 ;Hardware pixel based sprite to sprite
 ;collision.
 
-spr2spr  lda playerMode
-         cmp #$01
-         beq mode2
-
-mode1    lda  $d01e
-         lsr 
-         bcc nocrash
-         jmp  crashed
+spr2spr  
+redIf1   lda iframes1 ;makes sure that iframes reduce when not 0
+         cmp #$00
+         beq redIf2
+         dec iframes1
+redIf2   lda iframes2
+         cmp #$00
+         beq chkPcol
+         dec iframes2
          
-mode2    lda $d01e
-         and #%11111100 ;this should result in a 0 if player 1 and 2 collide
-         beq nocrash
-         jmp crashed
+chkPcol   lda $d01e
+          sta  collBits ;stores collision bits from d01e just in case because the previous instruction resets it
+          lda  lives1  ;this makes sure that collision works with dead players
+          cmp  #%00
+         beq pl1Chk
+          lda  lives2
+          cmp  #%00
+          beq  pl1Chk
+          
+         lda collBits 
+         bit collCheck ;this should result in a 0 if players 1 and 2 collide
+          beq  nocrash
+         
+pl1Chk   lda iframes1
+         cmp #%00
+          beq  pl1Sta
+          lda collBits
+          lsr
+          sta  collBits
+         jmp pl2Chk
+
+pl1Sta   lda collBits
+         lsr
+         sta collBits ; this is for pl2Chk: done because value of acc might change because of crashed1
+         bcc pl2Chk
+         jsr crashed1 ;if player 1 crashed, that means player 2 didn't crash (might not work with certain conditions but whatever, let's work with the limitations here)
+pl2Chk   lda iframes2
+         cmp #$00
+         bne nocrash
+
+         lda collBits
+         lsr
+         bcc nocrash ;integrate pickup here later
+         jmp crashed2
 
 nocrash  rts
 
@@ -857,9 +935,50 @@ nocrash  rts
 
 
 crashed  dec colltimer
-         lda colltimer
-         beq destroy
          rts
+
+
+crashed1 lda colltimer ;check if this causes a bug later
+         cmp #$00
+         bne crashed
+         lda lives1
+         cmp #%00
+         beq chkLives
+          dec  lives1
+          lda  #$00
+          sta  spr2destroy ;for setting which car explodes
+          lda  lives1
+          cmp #$00
+         beq chkLives ;It's verbose, but it works
+         lda #30
+         sta iframes1
+bckcr1   rts
+
+crashed2 lda colltimer
+         cmp #%00
+          bne  crashed
+         lda lives2
+          cmp  #$00
+          beq chkLives
+          dec  lives2
+          lda  #$01
+          sta  spr2destroy
+          lda  lives2
+          cmp #$00
+          beq chkLives
+          lda  #30
+         sta iframes2
+bckcr2   rts
+
+chkLives 
+chkpl1   lda  lives1 ;for player 1
+         cmp #$00
+         beq chkpl2
+         jmp bckcr1           ;returns if one of them is still alive
+chkpl2   lda lives2
+         cmp #$00
+         beq destroy      ;adjust later; don't use jsr
+         jmp bckcr2
 
 ;--------------------------------------
 
@@ -874,8 +993,10 @@ destroy
          sta animdelay2
          sta animpointer2
 
+         ldx spr2destroy
+
          lda #$07 ;Yellow for explode
-         sta carcol ;Player sprite
+         sta carcol,x ;Player sprite
                     ;colour.
 
          ;Recall the synctimer loop
@@ -901,14 +1022,16 @@ exploop  jsr syncall ;Sync timer
 
 doexp    lda #0
          sta animdelay2
-
+          lda  ##01
+         sta expStarted
          ;Main explosion animation
 
          ldx animpointer2
          lda expframe,x ;Explosion
                         ;frame
 
-         sta cartyp    ;Store to
+         ldy spr2destroy
+         sta cartyp,y    ;Store to
                        ;sprite 0
          inx
          cpx #8 ;Total no.of frames
@@ -921,9 +1044,27 @@ doexp    lda #0
 ;they have left the screen during
 ;player explosion.
 
+incXreg   inx
+          inx
+          rts
+
+
 shiftaway
          ldx #$00
-uploop   lda carpos+3,x
+uploop   lda spr2destroy
+spr0     cpx  #$00       ; skips sprites 0 and 1 based on who died last
+          bne  spr1
+          cmp  #$00
+         bne spr1
+         jsr incXreg
+spr1     cpx #$02     
+          bne  conShift
+          cmp  #$01
+          bne conShift
+         jsr incXreg
+         
+conShift
+         lda carpos+1,x
          sec
          sbc #$08
          cmp #$10
@@ -933,11 +1074,11 @@ uploop   lda carpos+3,x
          ;so move x position to offset
 
          lda #$00
-         sta carpos+2,x
-updateup sta carpos+3,x
+         sta carpos,x
+updateup sta carpos+1,x
          inx
          inx
-         cpx #14 ;(or $0e)
+         cpx #16 ;(or $0e)
          bne uploop
          rts
 
@@ -1027,16 +1168,16 @@ gameoverloop
 ;Scoring points
 ;Enemy cars must exit the screen
 ;before points are scored in units of
-;10s.
+;100s.
 
 ;*+2 ;Accuracy for levels
 
 scoring  ldx #$00
-chkloop  lda carpos+3,x
+chkloop  lda carpos+1,x ;changed to also detect sprite 1
          cmp #$dc;Range $dc reached
          bcc skipnew
          lda #$00 ;Reset Y position
-         sta carpos+3,x
+         sta carpos+1,x
          jmp setnextpos
 skipnew  inx
          inx
@@ -1055,7 +1196,7 @@ setnextpos
 
          ldy rndstor    ;read rbdstor,y
          lda randpostbl,y ;read table
-         sta carpos+2,x   ;store to car
+         sta carpos,x   ;store to car
                           ;x position
          inc rseqptr    ;then increment
                         ;sequence read
@@ -1065,15 +1206,15 @@ setnextpos
 ;the updated score to screen.
 
 scoreit
-
-         inc score+3
+         jsr incScore
          ldx #$03
 scloop   lda score,x
 
-         cmp #$3a ;Illegal char value
-         bne scoreok
+         cmp #$3a ;Illegal char value; ascii of 0 - 9 goes from 30 to 39 hexadecimal
+         bcc scoreok
 
-         lda #$30 ;Make as 0
+          sec
+         sbc #10 ; this gets the excess or converts ascii $40 to $30 (0)
          sta score,x
          inc score-1,x
 
@@ -1097,6 +1238,14 @@ panelok
          bne maskloop
 
          rts
+         
+incScore ldx #$00
+incLoop  inc score+3
+         inx
+         cpx difficulty
+         bne incLoop
+         rts
+
 ;-------------------------------------
 
 ;Flash score panel routine
@@ -1289,6 +1438,18 @@ skip
 ;---------------------------------------
 
 ;POINTERS
+
+; collission checker for bit instruction
+collCheck !byte %11111100
+collBits !byte 0
+
+spr2destroy !byte 0
+
+expStarted !byte 0   ; for skipping animating sprite 1 in animbad when they explode
+
+;i-frames
+iframes1 !byte 0
+iframes2 !byte 0
 
 lvlTime !byte 0   ;seconds required before level transition; changes based on difficulty
 lives1 !byte 0

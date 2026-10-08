@@ -15,7 +15,14 @@ Source code link: https://github.com/RichardTND/RaceNSmash
     - Fastest (10) - left direction
     - Extreme (5) - right direction
 - 2-player mode (hold joystick port 1 fire button before selecting difficulty)
+- Scoring based on difficulty
+    - Normal (increments score by 100)
+    - Fast (200)
+    - Faster (300)
+    - Fastest (400)
+    - Extreme (500)
+- 3-lives system for both 1 and 2-player mode
 
 ## Plan to Add
 - Score pickups
-- 3-lives system
+- Keyboard support (I think it's possible)
