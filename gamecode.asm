@@ -846,12 +846,21 @@ mode1    lda iframes1
 noIfr1   lda  $d01e
          lsr 
          bcc nocrash
-         jmp crashed
+         jmp crashed1
          
 mode2    lda $d01e
-         and #%11111100 ;this should result in a 0 if player 1 and 2 collide
+
+         bit collCheck ;this should result in a 0 if player 1 and 2 collide
          beq nocrash
-         jmp crashed
+pl1Chk   lsr
+         sta collBits
+         bcc pl2Chk
+         jsr crashed1 ;if player 1 crashed, that means player 2 didn't crash (might not work with certain conditions but whatever, let's work with the limitations here)
+pl2Chk   lda collBits
+
+         lsr
+         bcc nocrash ;integrate pickup here later
+         jmp crashed2
 
 nocrash  rts
 
@@ -863,19 +872,43 @@ nocrash  rts
 
 
 
-crashed  lda colltimer  
-         cmp #00
-         bne clTime
+crashed  dec colltimer
+         rts
 
 
-crashed1 dec lives1
-         beq destroy
+crashed1 lda colltimer ;check if this causes a bug later
+         cmp #$00
+         bne crashed
+         lda lives1
+         cmp #%00
+         beq chkLives
+          dec  lives1
+         beq chkLives ;It's verbose, but it works
          lda #30
          sta iframes1
-         rts
+bckcr1   rts
 
-clTime   dec colltimer
-         rts
+crashed2 lda colltimer
+         cmp #%00
+          bne  crashed
+         lda lives2
+          cmp  #$00
+          beq chkLives
+          dec  lives2
+          beq chkLives
+          lda  #30
+         sta iframes2
+bckcr2   rts
+
+chkLives 
+chkpl1   lda  lives1 ;for player 1
+         cmp #$00
+         beq chkpl2
+         jmp bckcr1           ;returns if one of them is still alive
+chkpl2   lda lives2
+         cmp #$00
+         beq destroy      ;adjust later; don't use jsr
+         jmp bckcr2
 
 ;--------------------------------------
 
@@ -1313,6 +1346,10 @@ skip
 ;---------------------------------------
 
 ;POINTERS
+
+; collission checker for bit instruction
+collCheck !byte %11111100
+collBits
 
 ;i-frames
 iframes1 !byte 0
