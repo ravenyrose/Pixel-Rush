@@ -283,8 +283,8 @@ empty    lda #$00
          lda #$00
          sta $d01e ;Init collision
 
-         lda #5   ;Fairer collision
-                  ;timer initialised
+         lda #5    ;Fairer collision
+                   ;timer initialised
 
          sta colltimer
 
@@ -512,36 +512,48 @@ diff2    cmp #$01
          lda  #29 ;30 seconds
          sta  lvlTime         
          jmp gameloop 
-         
+
 diff3    cmp #$02
          bne diff4
          lda  #$14 ;15 seconds
          sta  lvlTime   
          jmp gameloop      
-         
+
 diff4    cmp #$03
          bne diff5
          lda  #$09 ;10 seconds
          sta  lvlTime         
          jmp gameloop
-         
+
 diff5    cmp #$04
          lda  #$04 ;5 seconds
          sta  lvlTime         
          jmp gameloop
-         
+
+;--------------------------------------
 ;The main game loop (Call subroutines)
 
 gameloop
 
-         jsr syncall;Synchronize game
+         jsr syncall ;Synchronize game
 
          jsr obj2spr ;Store objects pos
                      ;to sprite pos
          jsr scroller
 
+         jsr move_pickups ;Scroll falling pickups
+         
+         jsr check_pickup_collision ;Check if player grabbed pickup
+         
+         jsr update_timers ;Count down active power-up timers
+         
+         inc gameframe_cnt ; Separate game counter for animations
+                           ; (used for flashing colors in invincibility power up)
+          
          jsr animate ;Animate player
                      ;and baddies
+                     
+         jsr update_pickup_sprite ; Sets Sprite 6 and Sprite 7 graphics
 
          jsr movement ;Move player and
                       ;baddies
@@ -552,6 +564,7 @@ gameloop
          jsr scoring ;Scoring points
 
          jsr flashpanel ;Flash score
+         
 panel
          jsr levels  ;Level control
 
@@ -576,10 +589,117 @@ animate  jsr animspr;Animation routine
 ;and baddies.
 
 movement
-         jsr  movplr1 ;Move player car
-         jsr  movplr2
-         
+         jsr movplr1 ;Move player car
+         jsr movplr2
+
          jsr movbad  ;Move baddies
+         rts
+
+;--------------------------------------
+;Move active pickups down screen independently
+
+move_pickups
+         ;--- MOVE 2X SCORE PICKUP ---
+         lda pickup_2x_type
+         beq chk_move_inv ; skips to invincibility pickup if 2x pick up exists
+
+         lda pickup_2x_y ; 2x pick up movement 
+         clc             ; the speed currently is fixed 
+         adc #2          ; and not dependent to the game's speed
+         sta pickup_2x_y
+         cmp #$dc         ; off-screen check to destroy
+         bcc store_2x_pos ; update sprite registers
+
+         lda #0
+         sta pickup_2x_type 
+         jsr hide_2x_pickup ; hide sprite when picked up
+         jmp chk_move_inv
+
+store_2x_pos ; Uses the existing car sprites as place holder
+         sta carpos+13      ; is updated by dynamic sprites 
+         lda pickup_2x_x    ; will be replaced with the actual sprites  
+         sta carpos+12      
+
+chk_move_inv
+         ;--- MOVE INVINCIBILITY PICKUP ---
+         lda pickup_inv_type
+         beq exit_move_p ; skips to no pickups if both pickups exist on screen
+
+         lda pickup_inv_y
+         clc
+         adc #2
+         sta pickup_inv_y
+         cmp #$dc
+         bcc store_inv_pos
+
+         lda #0
+         sta pickup_inv_type
+         jsr hide_inv_pickup ; hide sprite when picked up
+         jmp exit_move_p
+
+store_inv_pos ; same case uses car sprites as place holder
+         sta carpos+15      
+         lda pickup_inv_x
+         sta carpos+14      
+
+exit_move_p
+         rts ; no pickups to drop
+
+;--------------------------------------
+;Assign dynamic sprite frames for pickups
+;Will be integrated to the actual pickup display
+
+update_pickup_sprite
+         ;--- UPDATE 2X SCORE (SPRITE 6) ---
+         lda pickup_2x_type
+         beq hide_2x_pickup
+
+         lda #SPRITE_2X_SCORE  ;Pointer $94
+         sta cartyp+6
+         lda #7                ;Yellow
+         sta carcol+6
+         jmp update_inv_gfx
+
+hide_2x_pickup
+         lda #0
+         sta carpos+12
+         sta carpos+13
+         lda #$ff
+         sta cartyp+6
+
+update_inv_gfx
+         ;--- UPDATE INVINCIBILITY (SPRITE 7) ---
+         lda pickup_inv_type
+         beq hide_inv_pickup
+
+         lda #SPRITE_INVINCIBLE ;Pointer $95
+         sta cartyp+7
+         lda #3                 ;Cyan
+         sta carcol+7
+         rts
+
+hide_inv_pickup
+         lda #0
+         sta carpos+14
+         sta carpos+15
+         lda #$ff
+         sta cartyp+7
+         rts
+
+;--------------------------------------
+;Decrement power-up timers per frame
+
+update_timers
+         lda double_score_timer ; 2x score effect duration
+         beq check_inv_t
+         dec double_score_timer
+
+check_inv_t
+         lda invincible_timer ; invincibility duration
+         beq end_timers
+         dec invincible_timer
+
+end_timers
          rts
 
 ;--------------------------------------
@@ -603,7 +723,7 @@ obj2spr  ldx #$00
 objploop lda carpos+1,x ;Read Y position
          sta $d001,x  ;Store sprite Y
          lda carpos,x ;Read X position
-         asl         ;Double size of
+         asl          ;Double size of
          ror $d010    ;X sprite pos
          sta $d000,x  ;Store sprite X
          inx          ;X sprite pos
@@ -642,8 +762,44 @@ resetframe
 
 ;Animate the player
 
-animplr  lda car   ;Read pointer car
-         sta cartyp ;Store to sprite 0
+animplr  lda car        ;Read pointer car
+         sta cartyp     ;Store to sprite 0
+         
+         lda iframes1 ;Player hit visual feedback
+         bne plr_hit
+         
+         lda invincible_timer ;Player invincible visual feed back
+         bne plr_inv
+         
+         jsr plr_default ;Player normal state
+         rts
+
+plr_hit  jsr hit_plr_colors
+         rts 
+
+plr_inv  jsr inv_plr_colors
+         rts
+         
+hit_plr_colors ;Flashing animation
+         lda gameframe_cnt
+         and #$02
+         lsr
+         clc
+         adc #$01
+         sta carcol
+         rts
+         
+inv_plr_colors ;Flashing animation
+         lda gameframe_cnt
+         and #$03
+         tax
+         lda inv_colors,x
+         sta carcol
+         rts
+         
+plr_default
+         lda carcolor   ;Restore default player color
+         sta carcol
          rts
 
 ;Animate the baddies using the same
@@ -653,9 +809,9 @@ animbad
 
          ldx #$00
 newframe lda car
-         sta cartyp+1,x ;Sprites 1-7
+         sta cartyp+1,x ;Sprites 1-5 only (Leave Sprites 6 & 7 for Pickups)
          inx
-         cpx #$07
+         cpx #$05
          bne newframe
          rts
 
@@ -675,8 +831,8 @@ readUp1  lda #1 ;Read joystick up
 notup1   lda #2 ;Read joystick down
          bit $dc00
          bne notdown1
-         jsr  movplrdn1 ;Move car down
-         
+         jsr movplrdn1 ;Move car down
+
 notdown1 lda #4 ;Read joystick left
          bit $dc00
          bne notleft1
@@ -691,47 +847,47 @@ notright1 rts          ;Exit subroutine
 ;Move player car up
 
 movplrup1 lda carpos+1 ;Read Y of car
-         sec          ;subtract pos by
-         sbc #3       ;3
-         cmp #$3a     ;Pos below $3a
-         bcs storup1   ;No, update pos
-         lda #$3a     ;Force stop pos
-storup1  sta carpos+1 ;Updated position
-         rts
+          sec          ;subtract pos by
+          sbc #3       ;3
+          cmp #$3a     ;Pos below $3a
+          bcs storup1   ;No, update pos
+          lda #$3a     ;Force stop pos
+storup1   sta carpos+1 ;Updated position
+          rts
 
 ;Move player car down
 
 movplrdn1 lda carpos+1 ;Read Y of car
-         clc          ;add pos by
-         adc #3       ;3
-         cmp #$c2     ;Pos above $da
-         bcc stordn1   ;No, update pos
-         lda #$c2     ;Force stop pos
-stordn1  sta carpos+1 ;Updated position
-         rts
+          clc          ;add pos by
+          adc #3       ;3
+          cmp #$c2     ;Pos above $da
+          bcc stordn1   ;No, update pos
+          lda #$c2     ;Force stop pos
+stordn1   sta carpos+1 ;Updated position
+          rts
 
 ;Move player car left
 
 movplrlf1 lda carpos   ;Read X of car
-         sec          ;subtract pos by
-         sbc #2       ;2
-         cmp #$2e     ;Pos below $2e?
-         bcs storlft1  ;No, update pos
-         lda #$2e     ;Force stop pos
-storlft1 sta carpos   ;Updated position
-         rts
+          sec          ;subtract pos by
+          sbc #2       ;2
+          cmp #$2e     ;Pos below $2e?
+          bcs storlft1  ;No, update pos
+          lda #$2e     ;Force stop pos
+storlft1  sta carpos   ;Updated position
+          rts
 
 ;Move player car right
 
 movplrgt1 lda carpos   ;Read X of car
-         clc          ;add pos by
-         adc #2       ;2
-         cmp #$7e     ;Pos above $7e?
-         bcc storrgt1  ;No update pos
-         lda #$7e     ;Force stop pos
-storrgt1 sta carpos
-         rts
-         
+          clc          ;add pos by
+          adc #2       ;2
+          cmp #$7e     ;Pos above $7e?
+          bcc storrgt1  ;No update pos
+          lda #$7e     ;Force stop pos
+storrgt1  sta carpos
+          rts
+
 ;Move player 2 using joystick port 1
 movplr2  lda lives2
          cmp #$00
@@ -747,7 +903,7 @@ notup2   lda #2 ;Read joystick down
          bit $dc01
          bne notdown2
          jsr movplrdn2 ;Move car down
-         
+
 notdown2 lda #4 ;Read joystick left
          bit $dc01
          bne notleft2
@@ -762,46 +918,46 @@ notright2 rts          ;Exit subroutine
 ;Move player car up
 
 movplrup2 lda carpos+3 ;Read Y of car
-         sec          ;subtract pos by
-         sbc #3       ;3
-         cmp #$3a     ;Pos below $3a
-         bcs storup2   ;No, update pos
-         lda #$3a     ;Force stop pos
-storup2  sta carpos+3 ;Updated position
-         rts
+          sec          ;subtract pos by
+          sbc #3       ;3
+          cmp #$3a     ;Pos below $3a
+          bcs storup2   ;No, update pos
+          lda #$3a     ;Force stop pos
+storup2   sta carpos+3 ;Updated position
+          rts
 
 ;Move player car down
 
 movplrdn2 lda carpos+3 ;Read Y of car
-         clc          ;add pos by
-         adc #3       ;3
-         cmp #$c2     ;Pos above $da
-         bcc stordn2   ;No, update pos
-         lda #$c2     ;Force stop pos
-stordn2  sta carpos+3 ;Updated position
-         rts
+          clc          ;add pos by
+          adc #3       ;3
+          cmp #$c2     ;Pos above $da
+          bcc stordn2   ;No, update pos
+          lda #$c2     ;Force stop pos
+stordn2   sta carpos+3 ;Updated position
+          rts
 
 ;Move player car left
 
 movplrlf2 lda carpos+2   ;Read X of car
-         sec          ;subtract pos by
-         sbc #2       ;2
-         cmp #$2e     ;Pos below $2e?
-         bcs storlft2  ;No, update pos
-         lda #$2e     ;Force stop pos
-storlft2 sta carpos+2   ;Updated position
-         rts
+          sec          ;subtract pos by
+          sbc #2       ;2
+          cmp #$2e     ;Pos below $2e?
+          bcs storlft2  ;No, update pos
+          lda #$2e     ;Force stop pos
+storlft2  sta carpos+2   ;Updated position
+          rts
 
 ;Move player car right
 
 movplrgt2 lda carpos+2   ;Read X of car
-         clc          ;add pos by
-         adc #2       ;2
-         cmp #$7e     ;Pos above $7e?
-         bcc storrgt2  ;No update pos
-         lda #$7e     ;Force stop pos
-storrgt2 sta carpos+2
-         rts          
+          clc          ;add pos by
+          adc #2       ;2
+          cmp #$7e     ;Pos above $7e?
+          bcc storrgt2  ;No update pos
+          lda #$7e     ;Force stop pos
+storrgt2  sta carpos+2
+          rts          
 
 ;-------------------------------------
 
@@ -809,7 +965,7 @@ storrgt2 sta carpos+2
 ;speed of the player
 
 movbad   ldx  #$00
-         
+
 notPlyr2 lda playerMode ;Skips scrolling sprite 1 if two-player mode is active
          cmp #$01
          bne movloop
@@ -824,7 +980,7 @@ badspd   adc #2
          sta carpos+3,x
          inx
          inx
-         cpx #14 ;7 sprites for baddies
+         cpx #12 ;5 sprites for baddies (Sprites 1-5)
          bne movloop
          rts
 
@@ -836,24 +992,113 @@ spr2spr  lda playerMode
          cmp #$01
          beq mode2
 
-mode1    lda iframes1
+mode1    lda invincible_timer
+         bne no_inv_crash   ;Skip crash if invincible!
+
+         lda iframes1
          cmp #$00
-         beq noIfr1
-          dec  iframes1
-         lda $d01e ; should reset spr2spr collision bits
+         beq check_hardware_col
+         dec iframes1
+         lda $d01e          ;Reset spr2spr collision bits
          rts
 
-noIfr1   lda  $d01e
-         lsr 
+check_hardware_col
+         lda $d01e          ;Read VIC-II collision register once!
+         sta $ff            ;Store register locally to preserve state
+
+         lda $ff
+         lsr                ;Bit 0 = Player 1 collision
          bcc nocrash
-         jmp crashed
-         
+
+         ;P1 collided! Check if collision was against enemy cars (Sprites 1-5)
+         lda $ff
+         and #%00111110     ;Filter for enemy cars (Sprites 1-5 only)
+         beq nocrash        ;If 0, it was a Pickup (Sprite 6 or 7) - don't crash!
+
+         jmp crashed        ;Enemy car collision confirmed
+
 mode2    lda $d01e
          and #%11111100 ;this should result in a 0 if player 1 and 2 collide
          beq nocrash
          jmp crashed
 
-nocrash  rts
+nocrash
+no_inv_crash
+         rts
+
+;-------------------------------------
+;Bounding-box pickup collision check for both items
+
+check_pickup_collision
+         ;--- CHECK 2X SCORE PICKUP (SPRITE 6) ---
+         lda pickup_2x_type
+         beq check_inv_col
+
+         lda carpos+1       ;Player Y
+         sec
+         sbc pickup_2x_y
+         bcs pos_2x_y
+         eor #$ff
+         clc
+         adc #1
+pos_2x_y
+         cmp #16
+         bcs check_inv_col
+
+         lda carpos         ;Player X
+         sec
+         sbc pickup_2x_x
+         bcs pos_2x_x
+         eor #$ff
+         clc
+         adc #1
+pos_2x_x
+         cmp #16
+         bcs check_inv_col
+
+         ;--- COLLECTED 2X SCORE ---
+         lda #255
+         sta double_score_timer
+         lda #0
+         sta pickup_2x_type
+         jsr hide_2x_pickup
+
+check_inv_col
+         ;--- CHECK INVINCIBILITY PICKUP (SPRITE 7) ---
+         lda pickup_inv_type
+         beq end_p_col
+
+         lda carpos+1       ;Player Y
+         sec
+         sbc pickup_inv_y
+         bcs pos_inv_y
+         eor #$ff
+         clc
+         adc #1
+pos_inv_y
+         cmp #16
+         bcs end_p_col
+
+         lda carpos         ;Player X
+         sec
+         sbc pickup_inv_x
+         bcs pos_inv_x
+         eor #$ff
+         clc
+         adc #1
+pos_inv_x
+         cmp #16
+         bcs end_p_col
+
+         ;--- COLLECTED INVINCIBILITY ---
+         lda #255 ; Invicibility duration (currently 4.25 seconds)
+         sta invincible_timer
+         lda #0
+         sta pickup_inv_type ;deactivates pickup type/removes effect
+         jsr hide_inv_pickup ;hide pickup sprite
+
+end_p_col
+         rts
 
 ;-------------------------------------
 
@@ -861,12 +1106,9 @@ nocrash  rts
 ;the crash counter has reached zero
 ;before the player dies.
 
-
-
 crashed  lda colltimer  
          cmp #00
          bne clTime
-
 
 crashed1 dec lives1
          beq destroy
@@ -925,7 +1167,7 @@ doexp    lda #0
                         ;frame
 
          sta cartyp    ;Store to
-                       ;sprite 0
+                        ;sprite 0
          inx
          cpx #8 ;Total no.of frames
          beq gameover ;Explosion exits
@@ -953,7 +1195,7 @@ uploop   lda carpos+3,x
 updateup sta carpos+3,x
          inx
          inx
-         cpx #14 ;(or $0e)
+         cpx #12 ;(or $0c - 5 baddies)
          bne uploop
          rts
 
@@ -1056,7 +1298,7 @@ chkloop  lda carpos+3,x
          jmp setnextpos
 skipnew  inx
          inx
-         cpx #14
+         cpx #12
          bne chkloop
          rts
 
@@ -1069,7 +1311,7 @@ setnextpos
          lda seqtable,y ;next byte on tb
          sta rndstor    ;store rndstor
 
-         ldy rndstor    ;read rbdstor,y
+         ldy rndstor    ;read rndstor,y
          lda randpostbl,y ;read table
          sta carpos+2,x   ;store to car
                           ;x position
@@ -1077,24 +1319,79 @@ setnextpos
                         ;sequence read
                         ;pointer
 
+         ;--- PICKUP SPAWNERS ---
+         
+         ;1. SPAWN 2X SCORE PICKUP
+         lda pickup_2x_type
+         bne chk_inv_spawn  ;Skip if 2x already active
+         
+         lda rndstor
+         and #$07           ;Drop rate
+         cmp #$01
+         bne chk_inv_spawn
+         
+         lda #$10           ;Spawn top of screen
+         sta pickup_2x_y
+         lda rseqptr
+         clc
+         adc rndstor
+         and #$07           ;Drop rate (currently 33.33% chance)
+         tay
+         lda randpostbl,y
+         sta pickup_2x_x
+         lda #1
+         sta pickup_2x_type
+
+chk_inv_spawn
+         ;2. SPAWN INVINCIBILITY PICKUP
+         lda pickup_inv_type
+         bne scoreit        ;Skip if invincibility already active
+         
+         lda rndstor
+         and #$3f           ;Drop rate (currently 1.5% chance)
+         cmp #$07           ;Although the drop rate does not reflect much in-game
+         bne scoreit
+         
+         lda #$10           ;Spawn top of screen
+         sta pickup_inv_y
+         lda rseqptr
+         eor rndstor
+         and #$07
+         tay
+         lda randpostbl,y
+         sta pickup_inv_x
+         lda #1
+         sta pickup_inv_type
+
 ;Add points in units of 100 then copy
 ;the updated score to screen.
 
 scoreit
+         lda #1             ; Default 100 pts
+         ldx double_score_timer
+         beq add_pts
+         lda #2             ; 200 pts if 2x active
+                            ; currently is fixed and not reflected by the difficulty
+                            ; multiplicative bonus scoring may cause 
+                            ; corruption in the score board
 
-         inc score+3
+add_pts  clc
+         adc score+3
+         sta score+3
+
          ldx #$03
-scloop   lda score,x
-
-         cmp #$3a ;Illegal char value
-         bne scoreok
-
-         lda #$30 ;Make as 0
+chk_digit ; attempted fix to the multiplicative bonus scoring
+         lda score,x
+         cmp #$3a           ; Greater than or equal to '9'+1?
+         bcc scoreok
+         sec
+         sbc #10            ; Wrap back down to '0'-'9' range
          sta score,x
-         inc score-1,x
+         inc score-1,x      ; Carry over to higher digit
+         dex
+         bne chk_digit
 
-scoreok  dex
-         bne scloop
+scoreok
 
 maskpanel
          lda level
@@ -1306,6 +1603,24 @@ skip
 
 ;POINTERS
 
+;Power-up active timers (0 = inactive, >0 = active counter)
+double_score_timer  !byte 0
+invincible_timer    !byte 0
+
+;2x Score Pickup States (Sprite 6)
+pickup_2x_type      !byte 0
+pickup_2x_x         !byte 0
+pickup_2x_y         !byte 0
+
+;Invincibility Pickup States (Sprite 7)
+pickup_inv_type     !byte 0
+pickup_inv_x        !byte 0
+pickup_inv_y        !byte 0
+
+;Sprite frame pointers for pickups
+SPRITE_2X_SCORE     = $94   ;Address $2500
+SPRITE_INVINCIBLE   = $95   ;Address $2540
+
 ;i-frames
 iframes1 !byte 0
 iframes2 !byte 0
@@ -1316,18 +1631,24 @@ lives2 !byte 0
 
 ;Raster sync timer
 
-rt       !byte 0
+rt        !byte 0
+
+;Separate timer for animations (currently flashing lights)
+;Can be used for different purpose
+;Like effect durations and other animations
+
+gameframe_cnt !byte 0
 
 ;Scroller screen  vertical position
 ;control byte
 
-ypos     !byte $00,0
+ypos      !byte $00,0
 
 ;Level timer pointers
 
-timems   !byte 0        ;milliseconds
-times    !byte 0 ;seconds
-level    !byte 1       ;Actual level
+timems    !byte 0        ;milliseconds
+times     !byte 0 ;seconds
+level     !byte 1        ;Actual level
 
 ;Car sprite animation pointers
 
@@ -1337,14 +1658,14 @@ animpointer !byte 0
 ;Car object type and colour for
 ;rasters
 
-cartyp   !byte 0,0,0,0,0,0,0,0
-carcol   !byte 0,0,0,0,0,0,0,0
+cartyp    !byte 0,0,0,0,0,0,0,0
+carcol    !byte 0,0,0,0,0,0,0,0
 
 ;Explosion sprite animation pointers
 
 animdelay2 !byte 0
 animpointer2 !byte 0
-car      !byte $84 ;Car store anim
+car       !byte $84 ;Car store anim
 
 ;-------------------------------------
 
@@ -1380,6 +1701,10 @@ carpos   !byte  $00,$00 ;Car 1-Sprite 0
 carcolor
          !byte  $0a,$0d,$0f,$0e
          !byte  $04,$07,$0a,$0c
+
+;Invicible Car Flash Color
+
+inv_colors !byte $01, $07, $03, $0a ; White, Yellow, Cyan, Light Red
 
 ;Starting position table. Car 1 is the
 ;main player. Cars 2-8 are the baddies.
@@ -1486,4 +1811,3 @@ rantable
          !byte  5,4,3,2,1,0
 
 ;--------------------------------------
-

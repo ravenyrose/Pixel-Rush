@@ -39,6 +39,12 @@
                   *=$2100 ;"In game sprites"
                   !bin "c64/gamesprites.prg",,2
                   
+                  *=$2500 ;"2x Score Pickup Sprite ($94)"
+                  !bin "c64/x2pickup.prg",,2
+
+                  *=$2540 ;"Invincibility Pickup Sprite ($95)"
+                  !bin "c64/invpickup.prg",,2
+                  
                   *=$2800 ;"Charset"
                   !bin "c64/gfxcharset.prg",,2
                   
