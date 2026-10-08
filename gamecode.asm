@@ -808,23 +808,41 @@ storrgt2 sta carpos+2
 ;Move the enemy cars at twice the
 ;speed of the player
 
-movbad   ldx  #$00
-         
-notPlyr2 lda playerMode ;Skips scrolling sprite 1 if two-player mode is active
-         cmp #$01
-         bne movloop
-         inx
-         inx
+; the ones below are for determining whether to move players 1 and 2
 
-movloop  lda carpos+3,x ;Read sprite 1
+chkMovP1 lda lives1
+         cmp #$00
+          beq  movBack1
+          inx
+         inx
+movBack1 rts
+
+chkMovP2 lda lives2
+         cmp #$00
+          beq  movBack2
+          inx
+         inx
+movBack2 rts
+
+movbad   ldx  #$00           
+
+movloop  cpx #$00
+          bne  p2movCh
+         jsr chkMovP1
+p2movCh  cpx #$2        
+         bne movEnem
+         jsr chkMovP2
+
+movEnem
+         lda carpos+1,x ;Read sprite 1
                         ;Y pos (Enemy
                         ;cars)
          clc
 badspd   adc #2
-         sta carpos+3,x
+         sta carpos+1,x
          inx
          inx
-         cpx #14 ;7 sprites for baddies
+         cpx #16 ;7 sprites for baddies
          bne movloop
          rts
 
