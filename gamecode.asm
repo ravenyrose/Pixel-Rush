@@ -499,6 +499,9 @@ setLives lda #$03
          lda #$00
          sta lives2
 
+resExpIn lda #$00
+         sta expStarted
+
 setDiff  lda difficulty
 
 diff1    cmp #$01
@@ -624,7 +627,25 @@ animspr  lda animdelay
 
          ; Ready to animate racing cars
 animready
-         lda #$00
+colorP1  lda iframes1
+         cmp #$00
+         beq defcolP1
+YelP1    lda #$07
+          sta  carcol
+         jmp colorP2
+defcolP1 lda carcolor
+         sta carcol
+
+colorP2  lda iframes2
+         cmp #$00
+         beq defcolP2
+YelP2    lda #$07
+          sta  carcol + 1
+         jmp goAnim
+defcolP2 lda carcolor+1
+         sta carcol+1
+
+goAnim   lda #$00
          sta animdelay
          ldx animpointer
          lda carframe,x
@@ -650,8 +671,16 @@ animplr  lda car   ;Read pointer car
 ;frame.
 
 animbad
-
-         ldx #$00
+          ldx  #$00         ;skips sprite 1 when it's exploding
+          lda  spr2destroy
+          cmp  #$01
+          bne  newframe
+          lda  expStarted
+          cmp  #$01
+          bne  newframe
+          inx
+         inx
+          
 newframe lda car
          sta cartyp+1,x ;Sprites 1-7
          inx
@@ -916,6 +945,10 @@ crashed1 lda colltimer ;check if this causes a bug later
          cmp #%00
          beq chkLives
           dec  lives1
+          lda  #$00
+          sta  spr2destroy ;for setting which car explodes
+          lda  lives1
+          cmp #$00
          beq chkLives ;It's verbose, but it works
          lda #30
          sta iframes1
@@ -928,6 +961,10 @@ crashed2 lda colltimer
           cmp  #$00
           beq chkLives
           dec  lives2
+          lda  #$01
+          sta  spr2destroy
+          lda  lives2
+          cmp #$00
           beq chkLives
           lda  #30
          sta iframes2
@@ -956,8 +993,10 @@ destroy
          sta animdelay2
          sta animpointer2
 
+         ldx spr2destroy
+
          lda #$07 ;Yellow for explode
-         sta carcol ;Player sprite
+         sta carcol,x ;Player sprite
                     ;colour.
 
          ;Recall the synctimer loop
@@ -983,14 +1022,16 @@ exploop  jsr syncall ;Sync timer
 
 doexp    lda #0
          sta animdelay2
-
+          lda  ##01
+         sta expStarted
          ;Main explosion animation
 
          ldx animpointer2
          lda expframe,x ;Explosion
                         ;frame
 
-         sta cartyp    ;Store to
+         ldy spr2destroy
+         sta cartyp,y    ;Store to
                        ;sprite 0
          inx
          cpx #8 ;Total no.of frames
@@ -1003,9 +1044,27 @@ doexp    lda #0
 ;they have left the screen during
 ;player explosion.
 
+incXreg   inx
+          inx
+          rts
+
+
 shiftaway
          ldx #$00
-uploop   lda carpos+3,x
+uploop   lda spr2destroy
+spr0     cpx  #$00       ; skips sprites 0 and 1 based on who died last
+          bne  spr1
+          cmp  #$00
+         bne spr1
+         jsr incXreg
+spr1     cpx #$02     
+          bne  conShift
+          cmp  #$01
+          bne conShift
+         jsr incXreg
+         
+conShift
+         lda carpos+1,x
          sec
          sbc #$08
          cmp #$10
@@ -1015,11 +1074,11 @@ uploop   lda carpos+3,x
          ;so move x position to offset
 
          lda #$00
-         sta carpos+2,x
-updateup sta carpos+3,x
+         sta carpos,x
+updateup sta carpos+1,x
          inx
          inx
-         cpx #14 ;(or $0e)
+         cpx #16 ;(or $0e)
          bne uploop
          rts
 
@@ -1114,11 +1173,11 @@ gameoverloop
 ;*+2 ;Accuracy for levels
 
 scoring  ldx #$00
-chkloop  lda carpos+3,x
+chkloop  lda carpos+1,x ;changed to also detect sprite 1
          cmp #$dc;Range $dc reached
          bcc skipnew
          lda #$00 ;Reset Y position
-         sta carpos+3,x
+         sta carpos+1,x
          jmp setnextpos
 skipnew  inx
          inx
@@ -1137,7 +1196,7 @@ setnextpos
 
          ldy rndstor    ;read rbdstor,y
          lda randpostbl,y ;read table
-         sta carpos+2,x   ;store to car
+         sta carpos,x   ;store to car
                           ;x position
          inc rseqptr    ;then increment
                         ;sequence read
@@ -1383,6 +1442,10 @@ skip
 ; collission checker for bit instruction
 collCheck !byte %11111100
 collBits !byte 0
+
+spr2destroy !byte 0
+
+expStarted !byte 0   ; for skipping animating sprite 1 in animbad when they explode
 
 ;i-frames
 iframes1 !byte 0
