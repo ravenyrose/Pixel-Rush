@@ -850,23 +850,17 @@ badspd   adc #2
 ;Hardware pixel based sprite to sprite
 ;collision.
 
-spr2spr  lda playerMode
-         cmp #$01
-         beq mode2
-
-mode1    lda iframes1
+spr2spr  
+redIf1   lda iframes1 ;makes sure that iframes reduce when not 0
          cmp #$00
-         beq noIfr1
-          dec  iframes1
-         lda $d01e ; should reset spr2spr collision bits
-         rts
-
-noIfr1   lda  $d01e
-         lsr 
-         bcc nocrash
-         jmp crashed1
+         beq redIf2
+         dec iframes1
+redIf2   lda iframes2
+         cmp #$00
+         beq chkPcol
+         dec iframes2
          
-mode2    lda $d01e
+chkPcol   lda $d01e
           sta  collBits ;stores collision bits from d01e just in case because the previous instruction resets it
           lda  lives1  ;this makes sure that collision works with dead players
           cmp  #%00
@@ -876,15 +870,27 @@ mode2    lda $d01e
           beq  pl1Chk
           
          lda collBits 
-         bit collCheck ;this should result in a 0 if player 1 and 2 collide
-         beq nocrash
-pl1Chk   lda collBits
+         bit collCheck ;this should result in a 0 if players 1 and 2 collide
+          beq  nocrash
+         
+pl1Chk   lda iframes1
+         cmp #%00
+          beq  pl1Sta
+          lda collBits
+          lsr
+          sta  collBits
+         jmp pl2Chk
+
+pl1Sta   lda collBits
          lsr
          sta collBits ; this is for pl2Chk: done because value of acc might change because of crashed1
          bcc pl2Chk
          jsr crashed1 ;if player 1 crashed, that means player 2 didn't crash (might not work with certain conditions but whatever, let's work with the limitations here)
-pl2Chk   lda collBits
+pl2Chk   lda iframes2
+         cmp #$00
+         bne nocrash
 
+         lda collBits
          lsr
          bcc nocrash ;integrate pickup here later
          jmp crashed2
@@ -1376,7 +1382,7 @@ skip
 
 ; collission checker for bit instruction
 collCheck !byte %11111100
-collBits
+collBits !byte 0
 
 ;i-frames
 iframes1 !byte 0
