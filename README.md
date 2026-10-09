@@ -22,7 +22,8 @@ Source code link: https://github.com/RichardTND/RaceNSmash
     - Fastest (400)
     - Extreme (500)
 - 3-lives system for both 1 and 2-player mode
-
-## Plan to Add
 - Score pickups
+
+## Potentially add
+- invincibility item
 - Keyboard support (I think it's possible)
