@@ -39,6 +39,10 @@
                   *=$2100 ;"In game sprites"
                   !bin "c64/gamesprites.prg",,2
                   
+                  *=$2500 ;score item sprite
+                  !bin "c64/score_item.prg"
+                  
+          
                   *=$2800 ;"Charset"
                   !bin "c64/gfxcharset.prg",,2
                   
