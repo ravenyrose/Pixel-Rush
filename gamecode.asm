@@ -291,7 +291,6 @@ empty    lda #$00
 
 
 ;Make all sprites the car sprite.
-
          ldx #$00
 docars   lda #$84 ;Read at $2000
          sta cartyp,x
@@ -648,8 +647,10 @@ defcolP2 lda carcolor+1
 goAnim   lda #$00
          sta animdelay
          ldx animpointer
-         lda carframe,x
-         sta car
+          lda  carframe, x
+          sta  car
+          lda  scrItemFrame, x
+          sta scoreItem
          inx
          cpx #8
          beq resetframe
@@ -681,9 +682,15 @@ animbad
           inx
          inx
           
-newframe lda car
-         sta cartyp+1,x ;Sprites 1-7
-         inx
+newframe lda  car
+          cpx  #$06
+          bne  storeFrame
+         lda scoreItem
+
+storeFrame sta cartyp+1,x ;Sprites 1-7
+          inx
+
+
          cpx #$07
          bne newframe
          rts
@@ -877,7 +884,27 @@ badspd   adc #2
 
 ;-------------------------------------
 ;Hardware pixel based sprite to sprite
-;collision.
+          ;collision.
+
+setItemP 
+         lda  #$00
+         sta carpos+1,x
+         
+         ldy rseqptr    ;Read sequence
+                        ;pointer to read
+         lda seqtable,y ;next byte on tb
+         sta rndstor    ;store rndstor
+
+         ldy rndstor    ;read rbdstor,y
+         lda randpostbl,y ;read table
+         sta carpos,x   ;store to car
+                          ;x position
+         inc rseqptr    ;then increment
+                        ;sequence read
+                        ;pointer
+         
+         rts               ;sequence read
+                        ;pointer
 
 spr2spr  
 redIf1   lda iframes1 ;makes sure that iframes reduce when not 0
@@ -886,14 +913,27 @@ redIf1   lda iframes1 ;makes sure that iframes reduce when not 0
          dec iframes1
 redIf2   lda iframes2
          cmp #$00
-         beq chkPcol
+         beq chkPickup
          dec iframes2
          
-chkPcol   lda $d01e
-          sta  collBits ;stores collision bits from d01e just in case because the previous instruction resets it
-          lda  lives1  ;this makes sure that collision works with dead players
+chkPickup lda $d01e
+          asl
+          sta collBits
+          bcc rigSftCol
+          
+          ldx  #14
+          jsr  setItemP
+          jsr  scoreit
+          jmp nocrash
+
+
+rigSftCol lda collBits          
+          lsr
+          sta collBits
+
+chkPcol   lda  lives1  ;this makes sure that collision works with dead players
           cmp  #%00
-         beq pl1Chk
+          beq pl1Chk
           lda  lives2
           cmp  #%00
           beq  pl1Chk
@@ -1181,7 +1221,7 @@ chkloop  lda carpos+1,x ;changed to also detect sprite 1
          jmp setnextpos
 skipnew  inx
          inx
-         cpx #14
+         cpx #16
          bne chkloop
          rts
 
@@ -1486,6 +1526,7 @@ carcol   !byte 0,0,0,0,0,0,0,0
 animdelay2 !byte 0
 animpointer2 !byte 0
 car      !byte $84 ;Car store anim
+scoreItem !byte $94
 
 ;-------------------------------------
 
@@ -1520,7 +1561,7 @@ carpos   !byte  $00,$00 ;Car 1-Sprite 0
 
 carcolor
          !byte  $0a,$0d,$0f,$0e
-         !byte  $04,$07,$0a,$0c
+         !byte  $04,$0c,$03,$07
 
 ;Starting position table. Car 1 is the
 ;main player. Cars 2-8 are the baddies.
@@ -1557,6 +1598,10 @@ carframe !byte  $84,$85,$86,$87
 
 expframe !byte  $8c,$8d,$8e,$8f
          !byte  $90,$91,$92,$93
+
+scrItemFrame !byte  $94, $95, $96, $97
+             !byte  $98, $99, $9a, $9b
+
 
 ;--------------------------------------
 ;Text objects
