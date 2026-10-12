@@ -1,5 +1,5 @@
 ;**************************************
-;Race 'n' Smash - Final game build
+;Pixel Rush - Final game build
 ;for Lemon64  by Richard/TND
 ;September 2023
 
