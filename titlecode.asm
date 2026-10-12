@@ -1,5 +1,5 @@
 ;--------------------------------------
-;RACE 'N SMASH
+;Pixel Rush
 ;(C)2023 Richard/TND
 ;For Lemon64 game tutorial
 ;
