@@ -590,6 +590,10 @@ rtable2  !byte $04,$0a,$07,$01,$07
 ;--------------------------------------
 
 ;Title screen standard text
+;
+;*** EDIT THE TEXT BELOW ***
+;Each line must be EXACTLY 40 characters:
+;two !text parts of 20 characters each.
 
          !ct scr ;Convert ASCII to 
                  ;C64 screen data
@@ -597,8 +601,8 @@ rtable2  !byte $04,$0a,$07,$01,$07
                ;00000000001111111111"
 line1   ;.text "01234567890123456789"
 
-         !text "    @ 2023 t.n.d gam"
-         !text "es for lemon 64!    "
+         !text "  pixel rush - based"
+         !text " on race 'n smash   "
 
 line2    !text "   programming, grap"
          !text "hics and music by   "
@@ -617,4 +621,3 @@ difficulty !byte 0
 playerMode !byte 0
 
 ;*** END ***
-
