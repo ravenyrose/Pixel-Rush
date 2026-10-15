@@ -8,6 +8,7 @@
 ;October 2023:         System: PAL Only
 
 ;CONVERTED TO WORK IN C64STUDIO/ACME
+;Modified by Pixel Rush Group 2026
 
 ;--------------------------------------
 ;
@@ -604,14 +605,14 @@ line1   ;.text "01234567890123456789"
          !text "  pixel rush - based"
          !text " on race 'n smash   "
 
-line2    !text "   programming, grap"
-         !text "hics and music by   "
+line2    !text "      select difficu"
+         !text "lty fire 1          "
 
-line3    !text "              richar"
-         !text "d / tnd             "
+line3    !text "   up 2 / down 3 / l"
+         !text "eft 4 / right 5     "
 
-line4    !text "           press fir"
-         !text "e to play           "
+line4    !text " for 2 player hold a"
+         !text "ltfire and select   "
 
 ;--------------------------------------
 
