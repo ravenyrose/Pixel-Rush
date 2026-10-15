@@ -985,6 +985,7 @@ crashed1 lda colltimer ;check if this causes a bug later
          cmp #%00
          beq chkLives
           dec  lives1
+          jsr  maskpanel 
           lda  #$00
           sta  spr2destroy ;for setting which car explodes
           lda  lives1
@@ -1001,6 +1002,7 @@ crashed2 lda colltimer
           cmp  #$00
           beq chkLives
           dec  lives2
+          jsr  maskpanel
           lda  #$01
           sta  spr2destroy
           lda  lives2
@@ -1264,8 +1266,21 @@ scoreok  dex
 maskpanel
          lda level
          clc
-         adc #$30 ;Convert to digits
+         adc #$30
          sta levelct
+
+         lda lives1
+         clc
+         adc #$30
+         sta lifep1
+
+         lda #$20           ;blank by default (1-player)
+         ldx playerMode
+         beq p2done
+         lda lives2
+         clc
+         adc #$30
+p2done   sta lifep2
 
          ldx #$00
 maskloop lda scorepanel,x
@@ -1612,11 +1627,15 @@ scrItemFrame !byte  $94, $95, $96, $97
                  ; screen code text format
          
 scorepanel
-         !text "score: "
+         !text "score:"
 score    !text "000000"
-         !text "     level: "
-levelct  !text "1    "
-         !text "hi: "
+         !text "  lv:"
+levelct  !text "1"
+         !text "  p1:"
+lifep1   !text "3"
+         !text " p2:"
+lifep2   !text "3"
+         !text "  hi:"
 hiscore  !text "000000"
 
 ;Game over text
